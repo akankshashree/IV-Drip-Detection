@@ -1,5 +1,10 @@
-opencv-python
 numpy
 pandas
-matplotlib
+opencv-python
 scikit-learn
+scikit-image
+matplotlib
+joblib
+Pillow
+streamlit
+tensorflow
