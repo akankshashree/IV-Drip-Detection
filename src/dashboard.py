@@ -1,17 +1,20 @@
 
 from pathlib import Path
 
-import cv2
-import joblib
-import numpy as np
 import streamlit as st
-from PIL import Image
+import numpy as np
+from PIL import Image, ImageOps
+
+from predict_mobilenet import load_model_and_labels, predict_image
 
 
-# ---------------- CONFIGURATION ----------------
+st.set_page_config(
+    page_title="IV Fluid Monitoring System",
+    page_icon="💧",
+    layout="wide",
+)
 
 ROOT = Path(__file__).resolve().parent.parent
-MODEL_PATH = ROOT / "models" / "hog_linear_svc.joblib"
 
 LEVELS = {
     "sal_data_100": 100,
@@ -27,78 +30,25 @@ LEVEL_LABELS = {
     "sal_data_empty": "Empty",
 }
 
-st.set_page_config(
-    page_title="IV Fluid Monitoring System",
-    page_icon="💧",
-    layout="wide",
-)
-
-
-# ---------------- LOAD MODEL ----------------
 
 @st.cache_resource
-def load_model():
-    if not MODEL_PATH.is_file():
-        raise FileNotFoundError(
-            f"Model not found: {MODEL_PATH}\n"
-            "Run python src\\train_model.py first."
-        )
+def get_model():
+    return load_model_and_labels()
 
-    saved = joblib.load(MODEL_PATH)
-    return saved["model"], tuple(saved["image_size"])
-
-
-# ---------------- IMAGE PREPROCESSING ----------------
-
-def extract_features(image_rgb, image_size):
-    """
-    Match the training pipeline:
-    resize -> BGR-to-grayscale equivalent -> HOG features.
-
-    Uploaded images are RGB, so use RGB-to-grayscale.
-    During training, cv2.imread produced BGR images, so
-    training used BGR-to-grayscale.
-    """
-    resized = cv2.resize(image_rgb, image_size)
-
-    gray = cv2.cvtColor(resized, cv2.COLOR_RGB2GRAY)
-
-    hog = cv2.HOGDescriptor(
-        (96, 96),
-        (16, 16),
-        (8, 8),
-        (8, 8),
-        9,
-    )
-
-    features = hog.compute(gray).flatten().reshape(1, -1)
-
-    return features
-
-
-def predict_level(image_rgb, model, image_size):
-    features = extract_features(image_rgb, image_size)
-    predicted_class = model.predict(features)[0]
-
-    return predicted_class, LEVELS[predicted_class]
-
-
-# ---------------- DASHBOARD UI ----------------
 
 st.title("💧 IV Fluid Monitoring System")
 st.caption(
-    "Camera-based IV fluid category classification — research prototype"
+    "Camera-based IV saline fill-category classification — research prototype"
 )
 
 st.warning(
     "Research prototype only. Predictions may be incorrect. "
-    "Do not use this system to make clinical decisions or replace "
+    "Do not use this system for clinical decisions or to replace "
     "direct observation by trained healthcare staff."
 )
 
 with st.sidebar:
     st.header("Settings")
-
     threshold = st.slider(
         "Low-level warning threshold (%)",
         min_value=0,
@@ -106,10 +56,9 @@ with st.sidebar:
         value=50,
         step=10,
     )
-
     st.info(
-        "The threshold controls the demonstration warning only. "
-        "It does not change the model's prediction."
+        "This threshold controls a demonstration warning only. "
+        "It does not change the model prediction."
     )
 
 st.subheader("Upload an IV bottle image")
@@ -119,35 +68,40 @@ uploaded_file = st.file_uploader(
     type=["jpg", "jpeg", "png", "bmp", "webp"],
 )
 
-if uploaded_file is not None:
+if uploaded_file is None:
+    st.info("Upload an image to begin.")
+else:
     try:
-        pil_image = Image.open(uploaded_file).convert("RGB")
-        image_rgb = np.array(pil_image)
+        image = Image.open(uploaded_file)
+        image = ImageOps.exif_transpose(image).convert("RGB")
 
-        left, right = st.columns([1, 1])
+        left, right = st.columns(2)
 
         with left:
             st.image(
-                pil_image,
+                image,
                 caption="Uploaded IV bottle image",
                 use_container_width=True,
             )
 
         with right:
             st.subheader("Image information")
-            st.write(f"Width: {pil_image.width} pixels")
-            st.write(f"Height: {pil_image.height} pixels")
-            st.write(f"Format: {pil_image.format or 'Converted to RGB'}")
+            st.write(f"Width: {image.width} pixels")
+            st.write(f"Height: {image.height} pixels")
+            st.write("Format: RGB")
 
         if st.button("Analyze Fluid Level", type="primary"):
             try:
-                model, image_size = load_model()
+                with st.spinner("Loading model and analyzing image..."):
+                    model, labels = get_model()
+                    result = predict_image(model, labels, image)
 
-                with st.spinner("Analyzing image..."):
-                    predicted_class, level = predict_level(
-                        image_rgb,
-                        model,
-                        image_size,
+                predicted_class = result["label"]
+                level = LEVELS.get(predicted_class)
+
+                if level is None:
+                    raise ValueError(
+                        f"Unexpected predicted class: {predicted_class}"
                     )
 
                 st.divider()
@@ -162,26 +116,41 @@ if uploaded_file is not None:
                     )
 
                 with col2:
-                    st.metric(
-                        "Nominal category value",
-                        f"{level}%",
-                    )
+                    st.metric("Nominal category value", f"{level}%")
 
                 st.write("Predicted class:", predicted_class)
 
+                st.caption(
+                    f"Raw model score: {result['score']:.1%}. "
+                    "This score is not a calibrated probability or "
+                    "a guarantee of prediction correctness."
+                )
+
                 if level == 0:
-                    st.error("DEMONSTRATION ALERT: Empty category predicted")
+                    st.error(
+                        "DEMONSTRATION ALERT: Empty category predicted"
+                    )
                 elif level <= threshold:
-                    st.warning("DEMONSTRATION WARNING: Low category predicted")
+                    st.warning(
+                        "DEMONSTRATION WARNING: Low category predicted"
+                    )
                 else:
                     st.success("Above demonstration threshold")
 
                 st.progress(level / 100)
 
+                with st.expander("View scores for all categories"):
+                    for label in labels:
+                        st.write(
+                            f"{LEVEL_LABELS.get(label, label)}: "
+                            f"{result['scores'][label]:.4f}"
+                        )
+
                 st.caption(
-                    "The percentage is a category label, not a direct "
-                    "measurement of the remaining fluid volume. "
-                    "The classifier may misclassify unfamiliar images."
+                    "The displayed percentage is a nominal dataset "
+                    "category, not a direct measurement of remaining "
+                    "fluid volume. The model has not been validated "
+                    "for clinical use or independent bottles."
                 )
 
             except Exception as error:
@@ -190,11 +159,9 @@ if uploaded_file is not None:
     except Exception as error:
         st.error(f"Could not open the uploaded image: {error}")
 
-else:
-    st.info("Upload an image to begin.")
-
 st.divider()
 st.caption(
     "IV Fluid Monitoring Prototype | Not clinically validated | "
-    "Always verify the fluid level independently."
+    "Always verify fluid levels independently."
 )
+
