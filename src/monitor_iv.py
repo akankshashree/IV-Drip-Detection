@@ -156,7 +156,7 @@ def detect_fluid_meniscus(crop_bgr):
     # Search central 60% width (avoid sidewalls)
     x1, x2 = int(w * 0.20), int(w * 0.80)
     # Search usable vertical region (10% to 90% height)
-    y1, y2 = int(h * 0.10), int(h * 0.90)
+    y1, y2 = int(h * 0.10), int(h * 0.90)   
     usable_h = y2 - y1
     if usable_h < 10 or x2 <= x1:
         return None, None
