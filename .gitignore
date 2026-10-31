@@ -1,19 +1,47 @@
-
+# Environments and caches
 .venv/
 __pycache__/
 *.py[cod]
 .env
 .env.*
 !.env.example
+.ipynb_checkpoints/
+.vscode/
+.idea/
+.dart_tool/
+build/
+node_modules/
 
+# Local data and generated outputs (never push)
 datasets/
-models/
+datasets_scharr/
+iv_dataset/
+iv_dataset_filter/
+processed_images/
+processed_scharr/
+yolo_bottle_crops/
+outputs/
 results/
+keep_48pct/
+New folder/
+
+# Model files: block everything, then allow chosen ones at the bottom
+models/*
 yolo11n.pt
 *.keras
 *.h5
 *.pt
 *.joblib
 
-.ipynb_checkpoints/
-.vscode/
+# Scratch files and old experiments
+2.11
+counts.txt
+listing*.txt
+dataset*_file_list.txt
+filters.py
+scharr.py
+src/flutter_application_1/
+
+# Models chosen for the repo (keep these last)
+!models/scharr_blocked_mobilenetv2.keras
+!models/scharr_blocked_labels.json
