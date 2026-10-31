@@ -1,47 +1,110 @@
-# Environments and caches
-.venv/
+# =========================
+# Python
+# =========================
 __pycache__/
 *.py[cod]
+*$py.class
+*.so
+
+# =========================
+# Virtual environments
+# =========================
+.venv/
+venv/
+env/
+ENV/
+
+# =========================
+# Environment variables / secrets
+# =========================
 .env
 .env.*
 !.env.example
+
+# =========================
+# Jupyter
+# =========================
 .ipynb_checkpoints/
+
+# =========================
+# Testing / coverage
+# =========================
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# =========================
+# Build / packaging
+# =========================
+build/
+dist/
+*.egg-info/
+
+# =========================
+# IDE settings
+# =========================
 .vscode/
 .idea/
-.dart_tool/
-build/
-node_modules/
 
-# Local data and generated outputs (never push)
+# =========================
+# OS files
+# =========================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# =========================
+# Datasets
+# =========================
 datasets/
-datasets_scharr/
-iv_dataset/
-iv_dataset_filter/
-processed_images/
-processed_scharr/
-yolo_bottle_crops/
-outputs/
-results/
-keep_48pct/
-New folder/
+data/
 
-# Model files: block everything, then allow chosen ones at the bottom
+# =========================
+# Generated results / logs
+# =========================
+results/
+logs/
+*.log
+*.tmp
+*.temp
+
+# =========================
+# Model artifacts
+# Ignore model files by default
+# =========================
 models/*
-yolo11n.pt
 *.keras
 *.h5
 *.pt
+*.pth
 *.joblib
+*.pkl
+*.pickle
 
-# Scratch files and old experiments
-2.11
-counts.txt
-listing*.txt
-dataset*_file_list.txt
-filters.py
-scharr.py
-src/flutter_application_1/
+# Allow the model and labels used by the current dashboard
+!models/
+!models/mobilenetv2_iv.keras
+!models/mobilenetv2_labels.json
 
-# Models chosen for the repo (keep these last)
-!models/scharr_blocked_mobilenetv2.keras
-!models/scharr_blocked_labels.json
+# =========================
+# Large downloaded model files
+# =========================
+yolo11n.pt
+
+# =========================
+# Streamlit
+# =========================
+.streamlit/secrets.toml
+
+# =========================
+# Flutter / Dart generated files
+# =========================
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+.flutter/
